@@ -15,7 +15,7 @@ function App() {
             <span className="font-semibold text-gray-800 dark:text-white">Daily Log</span>
             <div className="flex items-center space-x-3">
               <button
-                onClick={() => signOut(auth)}
+                onClick={() => signOut(auth).catch(console.error)}
                 className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               >
                 Sign out
