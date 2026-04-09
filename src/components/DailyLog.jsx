@@ -115,19 +115,23 @@ const DailyLog = () => {
     const userId = auth.currentUser?.uid;
     if (upToDate || !nextEntryDate || !userId) return;
 
-    await setDoc(doc(db, 'users', userId, 'dailyLogs', nextEntryDate), {
-      date: nextEntryDate,
-      sleep:  Number(formData.sleep),
-      energy: Number(formData.energy),
-      alc:    Number(formData.alc),
-      createdAt: serverTimestamp(),
-    });
+    try {
+      await setDoc(doc(db, 'users', userId, 'dailyLogs', nextEntryDate), {
+        date: nextEntryDate,
+        sleep:  Number(formData.sleep),
+        energy: Number(formData.energy),
+        alc:    Number(formData.alc),
+        createdAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error('Failed to save daily log:', err);
+      return;
+    }
 
     setFormData({ sleep: 7, energy: 3, alc: 0 });
+    await loadAll();
     setSubmitSuccess(true);
     setTimeout(() => setSubmitSuccess(false), 3000);
-
-    await loadAll();
   };
 
   if (loading) {
@@ -177,7 +181,7 @@ const DailyLog = () => {
             <input
               type="number"
               value={formData.alc}
-              onChange={(e) => setFormData(prev => ({ ...prev, alc: e.target.value }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, alc: Number(e.target.value) }))}
               min="0"
               className="w-20 p-2 border items-center rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
             />
@@ -242,8 +246,8 @@ const DailyLog = () => {
               </tr>
             </thead>
             <tbody>
-              {recentEntries.map((entry, index) => (
-                <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+              {recentEntries.map((entry) => (
+                <tr key={entry.date} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="border p-2 dark:border-gray-600 dark:text-white">{entry.date}</td>
                   <td className="border p-2 dark:border-gray-600 dark:text-white">{entry.sleep}</td>
                   <td className="border p-2 dark:border-gray-600 dark:text-white">{entry.energy}</td>
