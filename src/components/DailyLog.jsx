@@ -164,17 +164,11 @@ const DailyLog = () => {
         </div>
 
         <div>
-  {/*<label className="block mb-2 font-semibold dark:text-white">Energy</label> */}
-  <div className="space-y-2">
-    <SegmentedEnergySlider
-      value={formData.energy}
-      onChange={(e) => {
-        const value = Number(e.target.value);
-        setFormData(prev => ({ ...prev, energy: value }));
-      }}
-    />
-  </div>
-    </div>
+          <SegmentedEnergySlider
+            value={formData.energy}
+            onChange={(e) => setFormData(prev => ({ ...prev, energy: Number(e.target.value) }))}
+          />
+        </div>
 
         <div className="flex items-center space-x-3">
           <label className="font-semibold dark:text-white text-lg">Alcohol</label>
