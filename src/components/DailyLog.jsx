@@ -248,7 +248,7 @@ const DailyLog = () => {
             <tbody>
               {recentEntries.map((entry) => (
                 <tr key={entry.date} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="border p-2 dark:border-gray-600 dark:text-white">{entry.date}</td>
+                  <td className="border p-2 dark:border-gray-600 dark:text-white">{formatDisplayDate(entry.date)}</td>
                   <td className="border p-2 dark:border-gray-600 dark:text-white">{entry.sleep}</td>
                   <td className="border p-2 dark:border-gray-600 dark:text-white">{entry.energy}</td>
                   <td className="border p-2 dark:border-gray-600 dark:text-white">{entry.alc}</td>
