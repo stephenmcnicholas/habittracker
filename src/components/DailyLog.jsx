@@ -1,41 +1,124 @@
 import React, { useState, useEffect } from 'react';
-//import { GradientEnergySlider} from './EnergySliders';
-import { SegmentedEnergySlider} from './EnergySliders';
-//import { CustomThumbEnergySlider} from './EnergySliders';
+import { collection, doc, getDocs, setDoc, query, orderBy, limit, serverTimestamp } from 'firebase/firestore';
+import { SegmentedEnergySlider } from './EnergySliders';
 import { CircularSleepSlider } from './EnergySliders';
+import { auth, db } from '../firebase';
 
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbynd1P4XhEhxsO_G2cgYRm2XZQt6-iTWyuk27YVVfTsXWyWFjHnSXPIWoinDLlv2rgB/exec';
 
+// Local-time-aware date formatting — avoids UTC off-by-one errors
+const formatDate = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
+const formatDisplayDate = (dateStr) => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
+  });
+};
+
+const addDays = (dateStr, n) => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const d = new Date(year, month - 1, day);
+  d.setDate(d.getDate() + n);
+  return formatDate(d);
+};
+
+const isAfterToday = (dateStr) => dateStr > formatDate(new Date());
 
 const DailyLog = () => {
-  const [formData, setFormData] = useState({
-    sleep: 8,
-    energy: 3,
-    alc: 0
-  });
-  const [sleepValue, setSleepValue] = useState(7);
-  const [energyValue, setEnergyValue] = useState(3);
+  const userId = auth.currentUser?.uid;
+
+  const [formData, setFormData] = useState({ sleep: 7, energy: 3, alc: 0 });
+  const [nextEntryDate, setNextEntryDate] = useState(null);
+  const [upToDate, setUpToDate] = useState(false);
   const [stats, setStats] = useState({
-    avgSleep: '-',
-    avgEnergy: '-',
-    totalAlc: '-',
-    stepStreak: '-',
-    dryStreak: '-'
+    avgSleep: '-', avgEnergy: '-', totalAlc: '-', dryStreak: '-', stepStreak: '-'
   });
   const [recentEntries, setRecentEntries] = useState([]);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const scriptURL = 'https://script.google.com/macros/s/AKfycbynd1P4XhEhxsO_G2cgYRm2XZQt6-iTWyuk27YVVfTsXWyWFjHnSXPIWoinDLlv2rgB/exec';
+  const fetchNextDate = async () => {
+    const q = query(
+      collection(db, 'users', userId, 'dailyLogs'),
+      orderBy('date', 'desc'),
+      limit(1)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return formatDate(new Date());
+    return addDays(snap.docs[0].data().date, 1);
+  };
+
+  const fetchStats = async () => {
+    const q = query(
+      collection(db, 'users', userId, 'dailyLogs'),
+      orderBy('date', 'desc'),
+      limit(60)
+    );
+    const snap = await getDocs(q);
+    const entries = snap.docs.map(d => d.data());
+    if (entries.length === 0) return;
+
+    const last7 = entries.slice(0, 7);
+    const avgSleep   = (last7.reduce((s, e) => s + Number(e.sleep),  0) / last7.length).toFixed(1);
+    const avgEnergy  = (last7.reduce((s, e) => s + Number(e.energy), 0) / last7.length).toFixed(1);
+    const totalAlc   = last7.reduce((s, e) => s + Number(e.alc), 0);
+
+    // Dry streak: walk backwards through calendar days from most recent entry
+    let dryStreak = 0;
+    const byDate = Object.fromEntries(entries.map(e => [e.date, e]));
+    let cursor = entries[0].date;
+    while (byDate[cursor] && Number(byDate[cursor].alc) === 0) {
+      dryStreak++;
+      cursor = addDays(cursor, -1);
+    }
+
+    setStats(prev => ({ ...prev, avgSleep, avgEnergy, totalAlc, dryStreak }));
+    setRecentEntries([...last7].reverse()); // oldest first for table display
+  };
+
+  const fetchStepStreak = async () => {
+    try {
+      const response = await fetch(SCRIPT_URL);
+      const data = await response.json();
+      setStats(prev => ({ ...prev, stepStreak: data.stepStreak ?? '-' }));
+    } catch {
+      // step streak is best-effort — leave as '-' if unavailable
+    }
+  };
+
+  const loadAll = async () => {
+    setLoading(true);
+    try {
+      const [nextDate] = await Promise.all([
+        fetchNextDate(),
+        fetchStats(),
+        fetchStepStreak(),
+      ]);
+      setNextEntryDate(nextDate);
+      setUpToDate(isAfterToday(nextDate));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadAll(); }, []);
+
+  const scriptURL = SCRIPT_URL;
 
   const handleSleepSliderChange = (e) => {
     const value = e.target.value;
     setFormData(prev => ({ ...prev, sleep: value }));
-    setSleepValue(value);
   };
 
   const handleEnergySliderChange = (e) => {
     const value = e.target.value;
     setFormData(prev => ({ ...prev, energy: value }));
-    setEnergyValue(value);
   };
 
   const handleSubmit = async (e) => {
@@ -58,9 +141,7 @@ const DailyLog = () => {
       alert('Form submitted successfully!');
       // Reset form
       setFormData({ sleep: 7, energy: 3, alc: 0 });
-      setSleepValue(7);
-      setEnergyValue(3);
-      
+
       // Refresh stats
       fetchStats();
     } catch (error) {
@@ -69,48 +150,31 @@ const DailyLog = () => {
     }
   };
 
-  const fetchStats = async () => {
-    try {
-      const response = await fetch(scriptURL);
-      const data = await response.json();
-      
-      setStats({
-        avgSleep: data.averageSleep,
-        avgEnergy: data.averageEnergy,
-        totalAlc: data.totalAlc,
-        stepStreak: data.stepStreak,
-        dryStreak: data.dryStreak
-      });
-      
-      setRecentEntries(data.recentEntries);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-      setStats({ 
-        avgSleep: '-', 
-        avgEnergy: '-', 
-        totalAlc: '-',
-        stepStreak: '-',
-        dryStreak: '-'
-      });
-      setRecentEntries([]);
-    }
-  };
-
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64 dark:bg-gray-900">
+        <p className="text-gray-500 dark:text-gray-400">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto p-4 dark:bg-gray-900 dark:text-white">
-      <h1 className="text-2xl font-bold mb-6 dark:text-white">How are you today?</h1>
-      
+      <h1 className="text-2xl font-bold mb-1 dark:text-white">How are you today?</h1>
+      {nextEntryDate && (
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+          {upToDate
+            ? "You're up to date — come back tomorrow."
+            : `Logging for: ${formatDisplayDate(nextEntryDate)}`}
+        </p>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <CircularSleepSlider 
+          <CircularSleepSlider
             value={formData.sleep}
             onChange={(hours) => {
               setFormData(prev => ({ ...prev, sleep: hours }));
-              setSleepValue(hours);
             }}
           />
         </div>
@@ -118,30 +182,29 @@ const DailyLog = () => {
         <div>
   {/*<label className="block mb-2 font-semibold dark:text-white">Energy</label> */}
   <div className="space-y-2">
-    <SegmentedEnergySlider 
+    <SegmentedEnergySlider
       value={formData.energy}
       onChange={(e) => {
         const value = Number(e.target.value);
         setFormData(prev => ({ ...prev, energy: value }));
-        setEnergyValue(value);
       }}
     />
-  </div>    
+  </div>
     </div>
 
         <div className="flex items-center space-x-3">
           <label className="font-semibold dark:text-white text-lg">Alcohol</label>
-            <input 
-              type="number" 
+            <input
+              type="number"
               value={formData.alc}
               onChange={(e) => setFormData(prev => ({ ...prev, alc: e.target.value }))}
-              min="0" 
+              min="0"
               className="w-20 p-2 border items-center rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
             />
         </div>
 
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           className="w-full p-3 bg-blue-500 text-white rounded hover:bg-blue-600 dark:bg-blue-700 dark:hover:bg-blue-600"
         >
           Submit
@@ -163,7 +226,7 @@ const DailyLog = () => {
         </div>
 
         <h2 className="text-xl font-bold mb-4 dark:text-white">Last 7 Days</h2>
-        
+
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-white p-4 rounded shadow dark:bg-gray-700">
             <h3 className="text-gray-600 dark:text-gray-300">Average Sleep</h3>
