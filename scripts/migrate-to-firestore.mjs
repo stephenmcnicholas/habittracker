@@ -1,6 +1,10 @@
 import admin from 'firebase-admin';
 import { createRequire } from 'module';
 import { readFileSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const require = createRequire(import.meta.url);
 const serviceAccount = require('./serviceAccount.json');
@@ -19,6 +23,11 @@ const ALC_COL     = 'alc';      // header name of the alcohol column
 //   'MM/DD/YYYY'  e.g. 04/09/2026
 const DATE_FORMAT = 'DD/MM/YYYY';
 // ─────────────────────────────────────────────────────────────────────────────
+
+if (YOUR_UID === 'REPLACE_WITH_YOUR_UID') {
+  console.error('ERROR: Set YOUR_UID in the CONFIG block before running this script.');
+  process.exit(1);
+}
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
@@ -41,17 +50,35 @@ const toISODate = (raw) => {
 
 const parseCSV = (text) => {
   const lines = text.trim().split('\n');
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  const parseRow = (line) => {
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+      } else if (ch === ',' && !inQuotes) {
+        values.push(current.trim());
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    values.push(current.trim());
+    return values;
+  };
+  const headers = parseRow(lines[0]);
   return lines.slice(1)
     .filter(line => line.trim())
     .map(line => {
-      const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+      const values = parseRow(line);
       return Object.fromEntries(headers.map((h, i) => [h, values[i] ?? '']));
     });
 };
 
 const run = async () => {
-  const csv = readFileSync('./scripts/data.csv', 'utf8');
+  const csv = readFileSync(resolve(__dirname, 'data.csv'), 'utf8');
   const rows = parseCSV(csv);
 
   console.log(`Found ${rows.length} rows. Writing to users/${YOUR_UID}/dailyLogs/...`);
@@ -78,13 +105,21 @@ const run = async () => {
     }
     seen.add(date);
 
+    const sleep  = parseFloat(row[SLEEP_COL]);
+    const energy = parseInt(row[ENERGY_COL]);
+    const alc    = parseInt(row[ALC_COL]);
+
+    if (isNaN(sleep))  console.warn(`  ! ${date}: sleep value "${row[SLEEP_COL]}" is not a number — storing 0`);
+    if (isNaN(energy)) console.warn(`  ! ${date}: energy value "${row[ENERGY_COL]}" is not a number — storing 0`);
+    if (isNaN(alc))    console.warn(`  ! ${date}: alc value "${row[ALC_COL]}" is not a number — storing 0`);
+
     await db.collection('users').doc(YOUR_UID)
       .collection('dailyLogs').doc(date)
       .set({
         date,
-        sleep:  parseFloat(row[SLEEP_COL])  || 0,
-        energy: parseInt(row[ENERGY_COL])   || 0,
-        alc:    parseInt(row[ALC_COL])      || 0,
+        sleep:  isNaN(sleep)  ? 0 : sleep,
+        energy: isNaN(energy) ? 0 : energy,
+        alc:    isNaN(alc)    ? 0 : alc,
         createdAt: admin.firestore.Timestamp.fromDate(new Date(date)),
       });
 
