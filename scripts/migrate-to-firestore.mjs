@@ -10,18 +10,18 @@ const require = createRequire(import.meta.url);
 const serviceAccount = require('./serviceAccount.json');
 
 // ─── CONFIG — adjust these to match your CSV ─────────────────────────────────
-const YOUR_UID    = 'REPLACE_WITH_YOUR_UID';  // from Firebase Console → Auth → Users
+const YOUR_UID    = 'cUUSyEef9VQch1dISOu9y50okIA2';  // from Firebase Console → Auth → Users
 
-const DATE_COL    = 'date';     // header name of the date column in your CSV
-const SLEEP_COL   = 'sleep';    // header name of the sleep column
-const ENERGY_COL  = 'energy';   // header name of the energy column
-const ALC_COL     = 'alc';      // header name of the alcohol column
+const DATE_COL    = 'Date';     // header name of the date column in your CSV
+const SLEEP_COL   = 'Sleep';    // header name of the sleep column
+const ENERGY_COL  = 'Energy';   // header name of the energy column
+const ALC_COL     = 'Alc';      // header name of the alcohol column
 
 // Date format used in your CSV:
 //   'YYYY-MM-DD'  e.g. 2026-04-09
 //   'DD/MM/YYYY'  e.g. 09/04/2026
 //   'MM/DD/YYYY'  e.g. 04/09/2026
-const DATE_FORMAT = 'DD/MM/YYYY';
+const DATE_FORMAT = 'MM/DD/YYYY';
 // ─────────────────────────────────────────────────────────────────────────────
 
 if (YOUR_UID === 'REPLACE_WITH_YOUR_UID') {

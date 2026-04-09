@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, doc, getDocs, setDoc, query, orderBy, limit, serverTimestamp } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { SegmentedEnergySlider } from './EnergySliders';
 import { CircularSleepSlider } from './EnergySliders';
 import { auth, db } from '../firebase';
@@ -102,13 +103,20 @@ const DailyLog = () => {
       ]);
       setNextEntryDate(nextDate);
       setUpToDate(isAfterToday(nextDate));
+    } catch (err) {
+      console.error('Failed to load data:', err);
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) loadAll();
+    });
+    return unsubscribe;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadAll(); }, []);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
