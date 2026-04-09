@@ -35,7 +35,8 @@ admin.initializeApp({
 const db = admin.firestore();
 
 const toISODate = (raw) => {
-  const s = raw.trim();
+  // Strip time component if present (e.g. "2/1/2025 9:17:01" → "2/1/2025")
+  const s = raw.trim().split(' ')[0];
   if (DATE_FORMAT === 'YYYY-MM-DD') return s;
   if (DATE_FORMAT === 'DD/MM/YYYY') {
     const [d, m, y] = s.split('/');
