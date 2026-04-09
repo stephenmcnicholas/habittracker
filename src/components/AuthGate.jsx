@@ -15,12 +15,14 @@ const AuthGate = ({ children }) => {
     return unsubscribe;
   }, []);
 
-  const signIn = () =>
-    signInWithPopup(auth, googleProvider).catch((err) => {
+  const signIn = () => {
+    setError(null);
+    return signInWithPopup(auth, googleProvider).catch((err) => {
       if (err.code !== 'auth/popup-closed-by-user') {
         setError(err.message);
       }
     });
+  };
 
   if (loading) {
     return (
