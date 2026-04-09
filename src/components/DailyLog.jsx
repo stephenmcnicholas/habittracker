@@ -110,43 +110,24 @@ const DailyLog = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadAll(); }, []);
 
-  const handleSleepSliderChange = (e) => {
-    const value = e.target.value;
-    setFormData(prev => ({ ...prev, sleep: value }));
-  };
-
-  const handleEnergySliderChange = (e) => {
-    const value = e.target.value;
-    setFormData(prev => ({ ...prev, energy: value }));
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const submitData = {
-      ...formData,
-      timestamp: new Date().toISOString()
-    };
+    const userId = auth.currentUser?.uid;
+    if (upToDate || !nextEntryDate || !userId) return;
 
-    try {
-      await fetch(SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(submitData)
-      });
+    await setDoc(doc(db, 'users', userId, 'dailyLogs', nextEntryDate), {
+      date: nextEntryDate,
+      sleep:  Number(formData.sleep),
+      energy: Number(formData.energy),
+      alc:    Number(formData.alc),
+      createdAt: serverTimestamp(),
+    });
 
-      alert('Form submitted successfully!');
-      // Reset form
-      setFormData({ sleep: 7, energy: 3, alc: 0 });
+    setFormData({ sleep: 7, energy: 3, alc: 0 });
+    setSubmitSuccess(true);
+    setTimeout(() => setSubmitSuccess(false), 3000);
 
-      // Refresh stats
-      fetchStats();
-    } catch (error) {
-      console.error('Error:', error);
-      alert('An error occurred. Please try again.');
-    }
+    await loadAll();
   };
 
   if (loading) {
@@ -202,9 +183,17 @@ const DailyLog = () => {
             />
         </div>
 
+        {submitSuccess && (
+          <p className="text-green-600 dark:text-green-400 text-sm text-center mb-2">Saved!</p>
+        )}
         <button
           type="submit"
-          className="w-full p-3 bg-blue-500 text-white rounded hover:bg-blue-600 dark:bg-blue-700 dark:hover:bg-blue-600"
+          disabled={upToDate}
+          className={`w-full p-3 text-white rounded transition-colors
+            ${upToDate
+              ? 'bg-gray-400 cursor-not-allowed dark:bg-gray-600'
+              : 'bg-blue-500 hover:bg-blue-600 dark:bg-blue-700 dark:hover:bg-blue-600'
+            }`}
         >
           Submit
         </button>
