@@ -5,6 +5,7 @@ import { auth, googleProvider } from '../firebase';
 const AuthGate = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -14,7 +15,12 @@ const AuthGate = ({ children }) => {
     return unsubscribe;
   }, []);
 
-  const signIn = () => signInWithPopup(auth, googleProvider);
+  const signIn = () =>
+    signInWithPopup(auth, googleProvider).catch((err) => {
+      if (err.code !== 'auth/popup-closed-by-user') {
+        setError(err.message);
+      }
+    });
 
   if (loading) {
     return (
@@ -34,11 +40,12 @@ const AuthGate = ({ children }) => {
         >
           Sign in with Google
         </button>
+        {error && <p className="text-red-500 text-sm">{error}</p>}
       </div>
     );
   }
 
-  return children;
+  return <>{children}</>;
 };
 
 export default AuthGate;
