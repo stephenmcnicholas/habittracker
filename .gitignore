@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Migration script sensitive files
+scripts/serviceAccount.json
+scripts/data.csv
