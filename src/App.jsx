@@ -1,10 +1,10 @@
-import { HashRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth } from './firebase';
 import HabitTracker from './components/HabitTracker';
 import CountdownTimer from './components/CountdownTimer';
-import DarkModeToggle from './components/DarkModeToggle'; 
-import DailyLog from './components/DailyLog'; 
-
-
+import DarkModeToggle from './components/DarkModeToggle';
+import DailyLog from './components/DailyLog';
 
 function App() {
   return (
@@ -12,25 +12,24 @@ function App() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 dark:text-white">
         <nav className="p-4 bg-white shadow dark:bg-gray-800 dark:shadow-lg">
           <div className="max-w-2xl mx-auto flex justify-between items-center">
-           <div className="flex space-x-4"> 
-            <Link to="/" className="text-blue-500 hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">Habits</Link>
-            <Link to="/timer" className="text-blue-500 hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">Timer</Link>
-            <Link to="/dailylog" className="text-blue-500 hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">Daily Log</Link>
-            <a href="https://stephenmcnicholas.github.io/mealtracker/" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:text-blue-600 dark:text-blue-300 dark:hover:text-blue-200">
-              Meals
-            </a>
-          </div>
-          <DarkModeToggle /> 
+            <span className="font-semibold text-gray-800 dark:text-white">Daily Log</span>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => signOut(auth).catch(console.error)}
+                className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                Sign out
+              </button>
+              <DarkModeToggle />
+            </div>
           </div>
         </nav>
 
         <Routes>
-          <Route path="/" element={<HabitTracker />} />
+          <Route path="/" element={<DailyLog />} />
+          {/* Hidden — kept for future use */}
+          <Route path="/habits" element={<HabitTracker />} />
           <Route path="/timer" element={<CountdownTimer />} />
-          <Route path="/dailylog" element={<DailyLog />} />
         </Routes>
       </div>
     </Router>
