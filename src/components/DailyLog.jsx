@@ -31,8 +31,6 @@ const addDays = (dateStr, n) => {
 const isAfterToday = (dateStr) => dateStr > formatDate(new Date());
 
 const DailyLog = () => {
-  const userId = auth.currentUser?.uid;
-
   const [formData, setFormData] = useState({ sleep: 7, energy: 3, alc: 0 });
   const [nextEntryDate, setNextEntryDate] = useState(null);
   const [upToDate, setUpToDate] = useState(false);
@@ -43,7 +41,7 @@ const DailyLog = () => {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const fetchNextDate = async () => {
+  const fetchNextDate = async (userId) => {
     const q = query(
       collection(db, 'users', userId, 'dailyLogs'),
       orderBy('date', 'desc'),
@@ -54,7 +52,7 @@ const DailyLog = () => {
     return addDays(snap.docs[0].data().date, 1);
   };
 
-  const fetchStats = async () => {
+  const fetchStats = async (userId) => {
     const q = query(
       collection(db, 'users', userId, 'dailyLogs'),
       orderBy('date', 'desc'),
@@ -93,11 +91,13 @@ const DailyLog = () => {
   };
 
   const loadAll = async () => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
     setLoading(true);
     try {
       const [nextDate] = await Promise.all([
-        fetchNextDate(),
-        fetchStats(),
+        fetchNextDate(userId),
+        fetchStats(userId),
         fetchStepStreak(),
       ]);
       setNextEntryDate(nextDate);
@@ -107,9 +107,8 @@ const DailyLog = () => {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadAll(); }, []);
-
-  const scriptURL = SCRIPT_URL;
 
   const handleSleepSliderChange = (e) => {
     const value = e.target.value;
@@ -129,7 +128,7 @@ const DailyLog = () => {
     };
 
     try {
-      await fetch(scriptURL, {
+      await fetch(SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: {
