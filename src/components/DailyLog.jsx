@@ -5,7 +5,11 @@ import { SegmentedEnergySlider } from './EnergySliders';
 import { CircularSleepSlider } from './EnergySliders';
 import { auth, db } from '../firebase';
 
+// Fitbit Integration web app — read-only GET for the step streak.
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbynd1P4XhEhxsO_G2cgYRm2XZQt6-iTWyuk27YVVfTsXWyWFjHnSXPIWoinDLlv2rgB/exec';
+
+// "DailyLog Sheet Sync" web app — mirrors each entry to the formInput sheet.
+const SHEET_SYNC_URL = 'https://script.google.com/macros/s/AKfycbwBRpPWWmP3CsvuRhS87YaXAO5HyVA6WOyiHebBnPNRsVeZ6yo6sE_4oqZH3apS099HXw/exec';
 
 // Local-time-aware date formatting — avoids UTC off-by-one errors
 const formatDate = (date) => {
@@ -123,17 +127,32 @@ const DailyLog = () => {
     const userId = auth.currentUser?.uid;
     if (upToDate || !nextEntryDate || !userId) return;
 
+    const entry = {
+      date: nextEntryDate,
+      sleep:  Number(formData.sleep),
+      energy: Number(formData.energy),
+      alc:    Number(formData.alc),
+    };
+
     try {
       await setDoc(doc(db, 'users', userId, 'dailyLogs', nextEntryDate), {
-        date: nextEntryDate,
-        sleep:  Number(formData.sleep),
-        energy: Number(formData.energy),
-        alc:    Number(formData.alc),
+        ...entry,
         createdAt: serverTimestamp(),
       });
     } catch (err) {
       console.error('Failed to save daily log:', err);
       return;
+    }
+
+    // Mirror the entry to the formInput Google Sheet (best-effort, non-blocking).
+    // no-cors so the response is opaque — the Apps Script dedupes by date.
+    if (SHEET_SYNC_URL) {
+      fetch(SHEET_SYNC_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'dailyLog', ...entry }),
+      }).catch(() => {});
     }
 
     setFormData({ sleep: 7, energy: 3, alc: 0 });
