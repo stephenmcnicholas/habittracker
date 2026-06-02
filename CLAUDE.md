@@ -28,9 +28,18 @@ Three routes rendered inside a persistent nav bar with a dark mode toggle:
 ### Data
 
 - **Habits** (`HabitTracker.jsx`): Firebase Firestore (`firebase.js` exports `db`). Collection: `habits`, documents with `name`, `minutes`, `entries` (object keyed by ISO date strings → `true`), `createdAt`.
-- **Daily log** (`DailyLog.jsx`): Google Sheets via Apps Script URL using `fetch` with `mode: 'no-cors'`. No Firebase.
+- **Daily log** (`DailyLog.jsx`): Firebase Firestore + Auth. Entries live at `users/{uid}/dailyLogs/{YYYY-MM-DD}` with `date`, `sleep`, `energy`, `alc`, `createdAt`. Logging is sequential (only `nextEntryDate`, the day after the latest entry). Two Apps Script web app URLs are used: `SCRIPT_URL` (GET, the Fitbit step streak) and `SHEET_SYNC_URL` (POST on Submit → mirrors the entry to the `formInput` Google Sheet; see Sheet sync below).
 
 There is no global state management — each component manages its own state with `useState`/`useRef`. Data is fetched directly in components via `getDocs`/`addDoc`/`updateDoc`.
+
+### Daily log → Google Sheet sync
+
+The daily log mirrors to the historical `formInput` sheet (id `1a4UFdpK5MbDiBrd9GnGDwmc8ZT3H72SCNcfAUFe1ewc`, tab `Sheet1`, dates **day-first DD/MM/YYYY**):
+- **Live**: `DailyLog.jsx` POSTs each entry to `SHEET_SYNC_URL`, a standalone "DailyLog Sheet Sync" Apps Script (source: `scripts/apps-script-doPost.gs`) that appends a row and dedupes by date.
+- **Backfill/repair**: `scripts/sync-to-sheet.mjs` (Node + `googleapis` + `scripts/serviceAccount.json`) reads Firestore and appends dates missing from the sheet (idempotent, `SINCE` cutoff, `DRY_RUN` flag).
+- **Edit history**: `scripts/edit-sleep.mjs` edits past sleep values directly in Firestore (the UI can't).
+
+The service account must be shared as Editor on the sheet with the Google Sheets API enabled. `serviceAccount.json` and `data.csv` are gitignored. See `CHANGELOG.md` for the rollout.
 
 ### Dark Mode
 
