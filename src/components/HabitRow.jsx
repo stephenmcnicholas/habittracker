@@ -1,5 +1,6 @@
-import { GripVertical, Flame, Plus, Check, Pencil, Archive } from 'lucide-react';
-import { dailyStreak, weeklyStreak, weekProgress } from '../lib/habitsData';
+import { GripVertical, Flame, Plus, Check, Pencil, Archive, History } from 'lucide-react';
+import { dailyStreak, weeklyStreak, weekProgress, lastDone } from '../lib/habitsData';
+import { todayStr, daysBetween, shortDate } from '../lib/dates';
 
 // One toggleable instance. Sequential fill: completed shows a tick, pending shows
 // its index. Tapping instance i fills up to i (or clears from i if already done).
@@ -37,6 +38,14 @@ const HabitRow = ({
     ? weekProgress(habit.id, logs, currentDate)
     : null;
 
+  // When the streak is broken, show when it was last logged (muted, no guilt cue).
+  const last = streak > 0 ? null : lastDone(habit.id, logs);
+  let lastLabel = null;
+  if (last) {
+    const d = daysBetween(last, todayStr());
+    lastLabel = d <= 1 ? 'yesterday' : d <= 6 ? `${d}d ago` : shortDate(last);
+  }
+
   const handleToggle = (i) => onToggle(habit.id, i < completed ? i : i + 1);
 
   return (
@@ -62,11 +71,16 @@ const HabitRow = ({
           <div className="flex items-center justify-between gap-2">
             <div className="font-semibold truncate dark:text-white">{habit.name}</div>
             <div className="flex items-center gap-2 shrink-0">
-              {streak > 0 && (
-                <span className="flex items-center gap-0.5 text-orange-500 text-sm" title="streak">
+              {streak > 0 ? (
+                <span className="flex items-center gap-0.5 text-orange-500 text-sm" title="Current streak">
                   <Flame size={14} />{streak}
                 </span>
-              )}
+              ) : lastLabel ? (
+                <span className="flex items-center gap-1 text-gray-400 dark:text-gray-500 text-xs"
+                  title={`Last logged ${shortDate(last)}`}>
+                  <History size={13} />{lastLabel}
+                </span>
+              ) : null}
               {editMode && (
                 <>
                   <button type="button" onClick={() => onEdit(habit)} aria-label="Edit habit"

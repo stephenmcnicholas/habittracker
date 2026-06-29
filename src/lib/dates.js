@@ -28,6 +28,19 @@ export const addDays = (dateStr, n) => {
 
 export const todayStr = () => formatDate(new Date());
 
+// 'YYYY-MM-DD' → "12 Jun"
+export const shortDate = (dateStr) => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+};
+
+// Whole calendar days from `a` to `b` (b - a), local time.
+export const daysBetween = (a, b) => {
+  const [ay, am, ad] = a.split('-').map(Number);
+  const [by, bm, bd] = b.split('-').map(Number);
+  return Math.round((new Date(by, bm - 1, bd) - new Date(ay, am - 1, ad)) / 86400000);
+};
+
 export const isAfterToday = (dateStr) => dateStr > todayStr();
 
 // ── ISO week ────────────────────────────────────────────────────────────────

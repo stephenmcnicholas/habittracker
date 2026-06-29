@@ -141,6 +141,11 @@ Disabled when already up to date.
 
 Both computed client-side from the last ~60 locked logs.
 
+**Broken streak** — when the streak is 0, the flame is replaced by a muted "last
+logged" indicator (small history icon + relative time for recent gaps — "yesterday",
+"3d ago" — or an absolute short date like "12 Jun" beyond ~a week). A habit never
+logged shows nothing. Low-contrast and guilt-free by design.
+
 ---
 
 ## 5. Managing habits & categories (edit mode)

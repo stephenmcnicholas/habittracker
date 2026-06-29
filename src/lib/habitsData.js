@@ -125,6 +125,14 @@ export const weeklyStreak = (habitId, timesPerWeek, logs, today = todayStr()) =>
   return streak;
 };
 
+// Most recent locked day this habit was completed (>=1), or null if never.
+export const lastDone = (habitId, logs) => {
+  for (const l of logs) { // logs arrive date-desc from loadLogs
+    if (l.locked && Number(l.perHabit?.[habitId]?.completed ?? 0) >= 1) return l.date;
+  }
+  return null;
+};
+
 // Daily progress bar: Σ completed / Σ target across daily-cadence, non-archived
 // habits (weekly habits are excluded so rest days can still reach 100%).
 export const dayProgress = (habits, perHabit) => {
