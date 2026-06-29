@@ -1,33 +1,42 @@
 /**
- * Daily-log → formInput sheet sync (trigger-on-submit).
+ * formInput sheet sync (trigger-on-submit). Handles two payload types:
  *
- * This is a NEW, standalone Apps Script project — separate from the Fitbit
- * Integration project, which stays untouched. It only appends daily-log rows
- * to the formInput sheet.
+ *   { type:'dailyLog', date, sleep, energy, alc }  → Sheet1 (one row per date)
+ *   { type:'habits',   date, counts:{name:count} } → Sheet3 (one row per date,
+ *                                                     one column per habit)
  *
- * The React app POSTs { type:'dailyLog', date:'YYYY-MM-DD', sleep, energy, alc }
- * on each Submit; this appends one row [DD/MM/YYYY, sleep, energy, alc] to the
- * sheet, skipping the date if it's already there (so it's safe if it fires twice).
+ * This is a standalone Apps Script project — separate from the Fitbit Integration
+ * project, which stays untouched.
  *
- * ── Set it up ───────────────────────────────────────────────────────────────
- *   1. https://script.google.com → New project. Name it "DailyLog Sheet Sync".
+ * - Daily log: appends [DD/MM/YYYY, sleep, energy, alc], skipping dates already
+ *   present (safe if it fires twice).
+ * - Habits: upserts the row for the date in Sheet3, writing each habit's count
+ *   under a column matching its name (header row), creating Sheet3 / new columns
+ *   as needed. The React Habits page POSTs this when a day is locked ("Done for
+ *   today"), so it's written at most once per date.
+ *
+ * ── Set it up / update ────────────────────────────────────────────────────────
+ *   1. https://script.google.com → open "DailyLog Sheet Sync" (or New project).
  *   2. Replace Code.gs with this whole file. Save.
- *   3. Deploy → New deployment → type: Web app.
- *        Execute as: Me.   Who has access: Anyone.
+ *   3. Deploy → Manage deployments → edit the existing Web app deployment →
+ *        New version → Deploy.  (Execute as: Me.  Who has access: Anyone.)
+ *        The /exec URL stays the same — no app change needed.
  *   4. Authorize when prompted (it needs Sheets access).
- *   5. Copy the Web app /exec URL and paste it into SHEET_SYNC_URL in
- *      src/components/DailyLog.jsx, then `npm run deploy`.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 var FORMINPUT_SHEET_ID = '1a4UFdpK5MbDiBrd9GnGDwmc8ZT3H72SCNcfAUFe1ewc';
 var FORMINPUT_TAB = 'Sheet1';
+var HABITS_TAB = 'Sheet3';
 
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
     if (!data || !data.date) return jsonOut_({ ok: false, error: 'missing date' });
 
+    if (data.type === 'habits') return handleHabits_(data);
+
+    // Default: daily log → Sheet1 (existing behaviour).
     var sheet = SpreadsheetApp.openById(FORMINPUT_SHEET_ID).getSheetByName(FORMINPUT_TAB);
     var p = String(data.date).split('-');           // YYYY-MM-DD
     var dmy = p[2] + '/' + p[1] + '/' + p[0];        // DD/MM/YYYY
@@ -48,6 +57,58 @@ function doPost(e) {
   } catch (err) {
     return jsonOut_({ ok: false, error: String(err) });
   }
+}
+
+// Habits → Sheet3: one row per date, one column per habit (keyed by habit name
+// in the header row). Upserts the date's row; creates the tab / columns as needed.
+function handleHabits_(data) {
+  var ss = SpreadsheetApp.openById(FORMINPUT_SHEET_ID);
+  var sheet = ss.getSheetByName(HABITS_TAB);
+  if (!sheet) {
+    sheet = ss.insertSheet(HABITS_TAB);
+    sheet.getRange(1, 1).setValue('Date');
+  }
+
+  var counts = data.counts || {};
+  var names = Object.keys(counts);
+  var p = String(data.date).split('-');        // YYYY-MM-DD
+  var dmy = p[2] + '/' + p[1] + '/' + p[0];     // DD/MM/YYYY
+
+  // Header row → map habit name → 0-based column index; append any new habits.
+  var lastCol = Math.max(1, sheet.getLastColumn());
+  var header = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  if (!header[0]) header[0] = 'Date';
+  var colOf = {};
+  for (var c = 1; c < header.length; c++) {
+    var h = String(header[c]).trim();
+    if (h) colOf[h] = c;
+  }
+  for (var i = 0; i < names.length; i++) {
+    if (!(names[i] in colOf)) {
+      header.push(names[i]);
+      colOf[names[i]] = header.length - 1;
+    }
+  }
+  sheet.getRange(1, 1, 1, header.length).setValues([header]);
+
+  // Find the row for this date (day-first dedup), else append.
+  var lastRow = sheet.getLastRow();
+  var targetRow = -1;
+  if (lastRow >= 2) {
+    var colA = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (var r = 0; r < colA.length; r++) {
+      if (cellToIso_(colA[r][0]) === data.date) { targetRow = r + 2; break; }
+    }
+  }
+  if (targetRow === -1) {
+    targetRow = lastRow + 1;
+    sheet.getRange(targetRow, 1).setValue(dmy);
+  }
+
+  for (var j = 0; j < names.length; j++) {
+    sheet.getRange(targetRow, colOf[names[j]] + 1).setValue(Number(counts[names[j]]));
+  }
+  return jsonOut_({ ok: true, row: targetRow });
 }
 
 // A column-A value → 'YYYY-MM-DD' (or null). Handles real Date cells and
