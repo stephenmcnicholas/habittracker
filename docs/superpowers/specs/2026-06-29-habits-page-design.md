@@ -157,9 +157,9 @@ In normal (view) mode the page is clean — just categories, rows and toggles. A
 - **Drag-to-reorder** habits within a category (updates `order`). Drag handles appear
   only in edit mode.
 
-Editing a habit's `defaultCount` affects the target of **future** days only; a draft
-already open for today keeps the target it was created with (adjust with "+" if needed),
-and locked days are never altered.
+Editing a habit's `defaultCount` applies to today's open (unlocked) draft
+**immediately**, clamped so the target never drops below instances already
+completed; future days use the new default too. **Locked** past days are never altered.
 
 ---
 

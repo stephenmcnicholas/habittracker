@@ -136,6 +136,19 @@ const Habits = () => {
       }
       setEditPanel(null);
       await reloadDefinitions();
+      // Apply a default-count edit to today's open draft immediately, clamped so
+      // it never drops below instances already ticked. (Locked days are untouched.)
+      if (mode === 'habit' && initial && !upToDate) {
+        setPerHabit((prev) => {
+          const cur = prev[initial.id];
+          if (!cur) return prev;
+          const target = Math.max(Number(data.defaultCount) || 1, cur.completed || 0);
+          if (target === cur.target) return prev;
+          const next = { ...prev, [initial.id]: { ...cur, target } };
+          scheduleSave(next);
+          return next;
+        });
+      }
     } catch (e) {
       console.error('Failed to save:', e);
     }
