@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Pencil, Archive } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil, Archive, Flame } from 'lucide-react';
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
 } from '@dnd-kit/core';
@@ -8,6 +8,7 @@ import {
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { categoryStreak } from '../lib/habitsData';
 import HabitRow from './HabitRow';
 
 const collapseKey = (id) => `habits.collapsed.${id}`;
@@ -55,6 +56,9 @@ const HabitCategory = ({
     onReorder(category.id, next);
   };
 
+  // Streak across the whole category: any one habit logged keeps it alive.
+  const catStreak = categoryStreak(habits.map((h) => h.id), logs);
+
   const rows = habits.map((h) => (
     <HabitRow
       key={h.id} habit={h} entry={perHabit[h.id]} logs={logs} currentDate={currentDate}
@@ -67,11 +71,18 @@ const HabitCategory = ({
   return (
     <section className="mb-6">
       <div className="flex items-center justify-between mb-2">
-        <button type="button" onClick={toggleCollapsed}
-          className="flex items-center gap-1 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-          {category.name}
-        </button>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={toggleCollapsed}
+            className="flex items-center gap-1 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+            {category.name}
+          </button>
+          {catStreak > 0 && (
+            <span className="flex items-center gap-0.5 text-orange-500 text-sm" title="Category streak — any habit logged keeps it going">
+              <Flame size={14} />{catStreak}
+            </span>
+          )}
+        </div>
         {editMode && (
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => onEditCategory(category)} aria-label="Edit category"

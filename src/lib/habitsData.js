@@ -91,6 +91,25 @@ export const dailyStreak = (habitId, logs) => {
   return streak;
 };
 
+// Category cadence: consecutive calendar days back from the latest locked day on
+// which AT LEAST ONE habit in the category was completed (>= 1). Independent of any
+// individual habit's streak — a day counts if habit A *or* habit B was logged.
+export const categoryStreak = (habitIds, logs) => {
+  const locked = lockedLogs(logs);
+  if (locked.length === 0) return 0;
+  const byDate = Object.fromEntries(locked.map((l) => [l.date, l]));
+  const ids = habitIds.length ? habitIds : null;
+  if (!ids) return 0;
+  const anyDoneOn = (date) => ids.some((id) => completedOn(byDate, date, id) >= 1);
+  let cursor = locked[0].date;
+  let streak = 0;
+  while (byDate[cursor] && anyDoneOn(cursor)) {
+    streak++;
+    cursor = addDays(cursor, -1);
+  }
+  return streak;
+};
+
 // sessions per ISO week for a habit (a session = a locked day with completed >= 1).
 const weekSessionCounts = (habitId, logs) => {
   const counts = {};
